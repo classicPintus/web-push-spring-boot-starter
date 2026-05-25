@@ -13,7 +13,7 @@
 
     <groupId>io.github.classicpintus</groupId>
     <artifactId>web-push-spring-boot-parent</artifactId>
-    <version>0.1.0-SNAPSHOT</version>
+    <version>0.1.0</version>
     <packaging>pom</packaging>
     <name>Web Push Spring Boot Starter — Parent</name>
     <description>Spring Boot starter for sending Web Push notifications (RFC 8030/8291/8292)</description>
