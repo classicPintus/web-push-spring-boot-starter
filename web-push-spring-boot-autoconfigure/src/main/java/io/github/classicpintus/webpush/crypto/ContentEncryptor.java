@@ -1,4 +1,4 @@
-package io.github.classicpintus.crypto;
+package io.github.classicpintus.webpush.crypto;
 
 import javax.crypto.Cipher;
 import javax.crypto.KeyAgreement;

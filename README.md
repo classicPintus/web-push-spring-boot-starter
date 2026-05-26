@@ -23,7 +23,7 @@ The project is a Maven multi-module:
 
 ## Main API
 
-Public package: `io.github.classicpintus`.
+Public package: `io.github.classicpintus.webpush`.
 
 Main classes:
 

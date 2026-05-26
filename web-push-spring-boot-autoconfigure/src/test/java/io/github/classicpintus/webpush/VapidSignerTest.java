@@ -1,6 +1,6 @@
-package io.github.classicpintus;
+package io.github.classicpintus.webpush;
 
-import io.github.classicpintus.crypto.VapidSigner;
+import io.github.classicpintus.webpush.crypto.VapidSigner;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 

@@ -1,7 +1,7 @@
-package io.github.classicpintus;
+package io.github.classicpintus.webpush;
 
-import io.github.classicpintus.crypto.ContentEncryptor;
-import io.github.classicpintus.crypto.VapidSigner;
+import io.github.classicpintus.webpush.crypto.ContentEncryptor;
+import io.github.classicpintus.webpush.crypto.VapidSigner;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;

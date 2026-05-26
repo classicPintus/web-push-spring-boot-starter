@@ -1,6 +1,6 @@
-package io.github.classicpintus;
+package io.github.classicpintus.webpush;
 
-import io.github.classicpintus.crypto.ContentEncryptor;
+import io.github.classicpintus.webpush.crypto.ContentEncryptor;
 import org.junit.jupiter.api.Test;
 
 import javax.crypto.Cipher;

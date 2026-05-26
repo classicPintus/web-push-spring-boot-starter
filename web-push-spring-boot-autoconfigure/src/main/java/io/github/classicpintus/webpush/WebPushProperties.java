@@ -1,4 +1,4 @@
-package io.github.classicpintus;
+package io.github.classicpintus.webpush;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;

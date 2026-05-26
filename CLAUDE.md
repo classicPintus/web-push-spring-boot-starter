@@ -53,17 +53,8 @@ Active if `RestClient` is on the classpath and `webpush.enabled != false`. All b
 - `VapidSigner`, `ContentEncryptor`, `WebPushService`;
 - `RestClient` with bean name `webPushRestClient` (based on `JdkClientHttpRequestFactory` with `connect-timeout` / `read-timeout` from properties). To override, define a bean with the same name.
 
-Auto-configuration registered in `src/main/resources/META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports`.
+Auto-configuration registered in `src/main/resources/META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports` as `io.github.classicpintus.webpush.WebPushAutoConfiguration`.
 
 ### Properties (`WebPushProperties`, prefix `webpush`)
 
 `enabled`, `vapid.{subject,public-key,private-key}`, `ttl`, `connect-timeout`, `read-timeout`, `retry.{max-attempts,initial-backoff}`. VAPID keys in base64url: public = uncompressed EC point, 65 bytes; private = scalar, 32 bytes.
-
-## Dual package (important)
-
-The source contains **two parallel copies** of the code:
-
-- `io.github.webpush.*`
-- `io.github.classicpintus.*`
-
-The only registered auto-config is `io.github.classicpintus.WebPushAutoConfiguration` (see the `.imports` file) — so `io.github.classicpintus` is the "live" package. The files under `io.github.webpush` are leftovers from the rename to the Maven Central groupId. When modifying code, **apply the change in both copies** until the legacy package is removed, or check with the user which one to delete. The same applies to tests under `src/test/java/io/github/{webpush,classicpintus}/`.

@@ -1,4 +1,4 @@
-package io.github.classicpintus.crypto;
+package io.github.classicpintus.webpush.crypto;
 
 import java.math.BigInteger;
 import java.security.AlgorithmParameters;

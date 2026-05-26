@@ -1,4 +1,4 @@
-package io.github.classicpintus;
+package io.github.classicpintus.webpush;
 
 import org.junit.jupiter.api.Test;
 
