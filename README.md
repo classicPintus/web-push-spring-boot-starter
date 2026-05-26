@@ -13,6 +13,103 @@ The service:
 - sends the notification to the browser's push service via `RestClient`;
 - returns a `SendResult` with outcome, HTTP status, attempts and any error.
 
+## Getting started
+
+Requires Spring Boot 4.0.x and Java 25.
+
+### 1. Add the dependency
+
+Maven:
+
+```xml
+<dependency>
+    <groupId>io.github.classicpintus</groupId>
+    <artifactId>web-push-spring-boot-starter</artifactId>
+    <version>0.2.0</version>
+</dependency>
+```
+
+Gradle (Kotlin DSL):
+
+```kotlin
+implementation("io.github.classicpintus:web-push-spring-boot-starter:0.2.0")
+```
+
+The starter pulls in `web-push-spring-boot-autoconfigure` and `spring-boot-starter-restclient`.
+
+### 2. Generate VAPID keys
+
+If you don't already have a VAPID keypair, generate one (P-256, base64url encoded — public = uncompressed 65-byte point, private = 32-byte scalar). For example with the `web-push` Node CLI:
+
+```bash
+npx web-push generate-vapid-keys
+```
+
+The public key must also be sent to the browser to subscribe the user via `PushManager.subscribe({ userVisibleOnly: true, applicationServerKey })`.
+
+### 3. Configure `application.yml`
+
+```yaml
+webpush:
+  vapid:
+    subject: mailto:info@example.com
+    public-key: ${VAPID_PUBLIC_KEY}
+    private-key: ${VAPID_PRIVATE_KEY}
+  ttl: 1d                    # optional, default 1d
+  connect-timeout: 5s        # optional
+  read-timeout: 10s          # optional
+  retry:
+    max-attempts: 3          # optional, default 0 (no retry)
+    initial-backoff: 1s      # optional
+```
+
+Set `webpush.enabled: false` to disable auto-configuration.
+
+### 4. Inject and use `WebPushService`
+
+```java
+import io.github.classicpintus.webpush.PushSubscription;
+import io.github.classicpintus.webpush.SendResult;
+import io.github.classicpintus.webpush.WebPushService;
+import org.springframework.stereotype.Service;
+
+@Service
+public class NotificationService {
+
+    private final WebPushService webPushService;
+
+    public NotificationService(WebPushService webPushService) {
+        this.webPushService = webPushService;
+    }
+
+    public void notify(String endpoint, String p256dh, String auth, String payload) {
+        PushSubscription subscription = new PushSubscription(endpoint, p256dh, auth);
+        SendResult result = webPushService.send(subscription, payload);
+
+        if (result.isSubscriptionExpired()) {
+            // 404 / 410: remove the subscription from your storage
+        } else if (!result.success()) {
+            // inspect result.statusCode() and result.error()
+        }
+    }
+}
+```
+
+The `endpoint`, `p256dh`, and `auth` fields come from the `PushSubscription` object the browser produces on the client side.
+
+### 5. Override the `RestClient` (optional)
+
+To customize the HTTP client, declare a `RestClient` bean named `webPushRestClient`:
+
+```java
+@Bean
+RestClient webPushRestClient(RestClient.Builder builder) {
+    return builder
+            .requestFactory(/* your factory */)
+            .build();
+}
+```
+
 ## Structure
 
 The project is a Maven multi-module:
