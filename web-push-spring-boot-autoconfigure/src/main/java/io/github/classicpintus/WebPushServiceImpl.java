@@ -17,7 +17,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Objects;
 
-final class WebPushServiceImpl implements WebPushService {
+public final class WebPushServiceImpl implements WebPushService {
 
     static final String TTL_HEADER = "TTL";
     static final String CONTENT_ENCODING_AES128GCM = "aes128gcm";
@@ -27,8 +27,8 @@ final class WebPushServiceImpl implements WebPushService {
     private final WebPushProperties properties;
     private final RestClient restClient;
 
-    WebPushServiceImpl(VapidSigner vapidSigner, ContentEncryptor contentEncryptor,
-                       WebPushProperties properties, RestClient restClient) {
+    public WebPushServiceImpl(VapidSigner vapidSigner, ContentEncryptor contentEncryptor,
+                              WebPushProperties properties, RestClient restClient) {
         this.vapidSigner = vapidSigner;
         this.contentEncryptor = contentEncryptor;
         this.properties = properties;

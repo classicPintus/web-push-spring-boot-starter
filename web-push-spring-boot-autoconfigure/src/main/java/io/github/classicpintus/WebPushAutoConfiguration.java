@@ -20,7 +20,7 @@ import java.net.http.HttpClient;
 @EnableConfigurationProperties(WebPushProperties.class)
 public class WebPushAutoConfiguration {
 
-    static final String REST_CLIENT_BEAN_NAME = "webPushRestClient";
+    public static final String REST_CLIENT_BEAN_NAME = "webPushRestClient";
 
     @Bean
     @ConditionalOnMissingBean
