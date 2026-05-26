@@ -7,11 +7,7 @@ import java.math.BigInteger;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
-import java.security.GeneralSecurityException;
-import java.security.InvalidKeyException;
-import java.security.NoSuchAlgorithmException;
-import java.security.Signature;
-import java.security.SignatureException;
+import java.security.*;
 import java.security.interfaces.ECPrivateKey;
 import java.security.spec.ECPrivateKeySpec;
 import java.time.Clock;
@@ -28,7 +24,7 @@ public final class VapidSigner {
     private static final String SIGNATURE_ALG = "SHA256withECDSA";
     private static final String JWT_TYP = "JWT";
     private static final String AUTH_SCHEME = "vapid t=";
-    private static final String AUTH_KEY_PARAM = ",k=";
+    private static final String AUTH_KEY_PARAM = ", k=";
 
     private static final Duration JWT_LIFETIME = Duration.ofHours(12);
     private static final Duration CACHE_REFRESH_MARGIN = Duration.ofMinutes(5);
@@ -71,10 +67,19 @@ public final class VapidSigner {
     static String extractAudience(String endpoint) {
         try {
             URI uri = new URI(endpoint);
-            if (uri.getScheme() == null || uri.getAuthority() == null) {
+            String scheme = uri.getScheme();
+            String host = uri.getHost();
+            if (scheme == null || host == null) {
                 throw new IllegalArgumentException("Endpoint must be an absolute URL: " + endpoint);
             }
-            return uri.getScheme() + "://" + uri.getAuthority();
+            String lowerScheme = scheme.toLowerCase();
+            int port = uri.getPort();
+            boolean defaultPort = port == -1
+                    || (port == 443 && "https".equals(lowerScheme))
+                    || (port == 80 && "http".equals(lowerScheme));
+            return defaultPort
+                    ? lowerScheme + "://" + host
+                    : lowerScheme + "://" + host + ":" + port;
         } catch (URISyntaxException e) {
             throw new IllegalArgumentException("Invalid endpoint URL: " + endpoint, e);
         }

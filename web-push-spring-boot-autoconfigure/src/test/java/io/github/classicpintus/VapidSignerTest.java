@@ -30,7 +30,7 @@ class VapidSignerTest {
         String header = signer.buildAuthorizationHeader("https://push.example.com/push/xyz");
 
         assertThat(header).startsWith("vapid t=");
-        assertThat(header).contains(",k=" + pubKeyBase64);
+        assertThat(header).contains(", k=" + pubKeyBase64);
     }
 
     @Test
@@ -85,6 +85,34 @@ class VapidSignerTest {
     @Test
     void constructor_rejectsMalformedPrivateKey() {
         assertThatThrownBy(() -> new VapidSigner("mailto:t@t.com", pubKeyBase64, "***not-base64***"))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void buildAuthorizationHeader_stripsDefaultHttpsPortFromAudience() {
+        String payload = TestKeyHelper.decodeJwtPayload(
+                signer.buildAuthorizationHeader("https://push.example.com:443/a"));
+        assertThat(payload).contains("\"aud\":\"https://push.example.com\"");
+    }
+
+    @Test
+    void buildAuthorizationHeader_keepsExplicitNonDefaultPortInAudience() {
+        String payload = TestKeyHelper.decodeJwtPayload(
+                signer.buildAuthorizationHeader("https://push.example.com:8443/a"));
+        assertThat(payload).contains("\"aud\":\"https://push.example.com:8443\"");
+    }
+
+    @Test
+    void buildAuthorizationHeader_omitsUserInfoFromAudience() {
+        String payload = TestKeyHelper.decodeJwtPayload(
+                signer.buildAuthorizationHeader("https://user:secret@push.example.com/a"));
+        assertThat(payload).contains("\"aud\":\"https://push.example.com\"");
+        assertThat(payload).doesNotContain("secret");
+    }
+
+    @Test
+    void buildAuthorizationHeader_rejectsEndpointWithoutHost() {
+        assertThatThrownBy(() -> signer.buildAuthorizationHeader("not-a-url"))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 }

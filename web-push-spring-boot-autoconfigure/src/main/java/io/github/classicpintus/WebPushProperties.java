@@ -56,11 +56,24 @@ public record WebPushProperties(
      *
      * @param maxAttempts additional retry attempts after the initial send (0 disables retry).
      * @param initialBackoff backoff before the first retry; doubled per attempt when no Retry-After header is present.
+     * @param maxBackoff upper bound on the wait between retries (caps both exponential backoff and Retry-After).
      */
-    public record Retry(Integer maxAttempts, Duration initialBackoff) {
+    public record Retry(Integer maxAttempts, Duration initialBackoff, Duration maxBackoff) {
         public Retry {
             if (maxAttempts == null) maxAttempts = 0;
             if (initialBackoff == null) initialBackoff = Duration.ofSeconds(1);
+            if (maxBackoff == null) maxBackoff = Duration.ofMinutes(1);
+            if (maxAttempts < 0) throw new IllegalArgumentException("webpush.retry.max-attempts must be >= 0");
+            if (!initialBackoff.isPositive())
+                throw new IllegalArgumentException("webpush.retry.initial-backoff must be positive");
+            if (!maxBackoff.isPositive())
+                throw new IllegalArgumentException("webpush.retry.max-backoff must be positive");
+            if (maxBackoff.compareTo(initialBackoff) < 0)
+                throw new IllegalArgumentException("webpush.retry.max-backoff must be >= initial-backoff");
+        }
+
+        public Retry(Integer maxAttempts, Duration initialBackoff) {
+            this(maxAttempts, initialBackoff, null);
         }
     }
 }

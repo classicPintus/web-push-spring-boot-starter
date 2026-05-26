@@ -11,6 +11,7 @@ import javax.crypto.spec.SecretKeySpec;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.security.AlgorithmParameters;
 import java.security.KeyFactory;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
@@ -20,8 +21,8 @@ import java.security.spec.ECGenParameterSpec;
 import java.security.spec.ECParameterSpec;
 import java.security.spec.ECPoint;
 import java.security.spec.ECPublicKeySpec;
-import java.security.AlgorithmParameters;
 import java.util.Arrays;
+import java.util.Base64;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -81,6 +82,36 @@ class ContentEncryptorTest {
         String tooShort = TestKeyHelper.base64Url(new byte[]{1, 2, 3});
         assertThatThrownBy(() -> encryptor.encrypt(tooShort, "AAAA", "x".getBytes(StandardCharsets.UTF_8)))
                 .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void encrypt_emptyPayload_rsIsAtLeastEighteen() throws Exception {
+        String[] keys = TestKeyHelper.randomSubscriptionKeys();
+        byte[] result = encryptor.encrypt(keys[0], keys[1], new byte[0]);
+
+        int rs = ByteBuffer.wrap(result, 16, 4).getInt();
+        assertThat(rs).isGreaterThanOrEqualTo(18);
+    }
+
+    @Test
+    void encrypt_oversizedPayload_isRejected() throws Exception {
+        String[] keys = TestKeyHelper.randomSubscriptionKeys();
+        byte[] tooBig = new byte[4096];
+        assertThatThrownBy(() -> encryptor.encrypt(keys[0], keys[1], tooBig))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("payload");
+    }
+
+    @Test
+    void encrypt_rejectsPointOffSecp256r1Curve() throws Exception {
+        String[] keys = TestKeyHelper.randomSubscriptionKeys();
+        byte[] valid = Base64.getUrlDecoder().decode(keys[0]);
+        // Flip the last y-byte so the point no longer satisfies the curve equation.
+        valid[64] ^= 0x01;
+        String tampered = TestKeyHelper.base64Url(valid);
+        assertThatThrownBy(() -> encryptor.encrypt(tampered, keys[1], "x".getBytes(StandardCharsets.UTF_8)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("curve");
     }
 
     @Test

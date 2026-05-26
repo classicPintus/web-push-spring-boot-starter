@@ -6,10 +6,7 @@ import java.security.GeneralSecurityException;
 import java.security.KeyFactory;
 import java.security.NoSuchAlgorithmException;
 import java.security.interfaces.ECPublicKey;
-import java.security.spec.ECGenParameterSpec;
-import java.security.spec.ECParameterSpec;
-import java.security.spec.ECPoint;
-import java.security.spec.ECPublicKeySpec;
+import java.security.spec.*;
 import java.util.Arrays;
 
 final class EcUtils {
@@ -63,7 +60,29 @@ final class EcUtils {
         byte[] x = Arrays.copyOfRange(bytes, 1, 1 + COORDINATE_LENGTH);
         byte[] y = Arrays.copyOfRange(bytes, 1 + COORDINATE_LENGTH, UNCOMPRESSED_POINT_LENGTH);
         ECPoint point = new ECPoint(new BigInteger(1, x), new BigInteger(1, y));
+        validateOnCurve(point);
         return (ECPublicKey) EC_KEY_FACTORY.generatePublic(new ECPublicKeySpec(point, P256_SPEC));
+    }
+
+    private static void validateOnCurve(ECPoint point) {
+        if (point.equals(ECPoint.POINT_INFINITY)) {
+            throw new IllegalArgumentException("EC point at infinity is not a valid public key");
+        }
+        EllipticCurve curve = P256_SPEC.getCurve();
+        BigInteger p = ((ECFieldFp) curve.getField()).getP();
+        BigInteger x = point.getAffineX();
+        BigInteger y = point.getAffineY();
+        if (x.signum() < 0 || x.compareTo(p) >= 0 || y.signum() < 0 || y.compareTo(p) >= 0) {
+            throw new IllegalArgumentException("EC point coordinates out of field range");
+        }
+        BigInteger lhs = y.modPow(BigInteger.TWO, p);
+        BigInteger rhs = x.modPow(BigInteger.valueOf(3), p)
+                .add(curve.getA().mod(p).multiply(x))
+                .add(curve.getB())
+                .mod(p);
+        if (!lhs.equals(rhs)) {
+            throw new IllegalArgumentException("EC point is not on the secp256r1 curve");
+        }
     }
 
     private static ECParameterSpec loadP256Spec() {

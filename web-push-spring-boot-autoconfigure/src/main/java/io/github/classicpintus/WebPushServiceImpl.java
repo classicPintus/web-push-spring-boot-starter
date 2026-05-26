@@ -6,16 +6,14 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
-import org.springframework.web.client.HttpClientErrorException;
-import org.springframework.web.client.HttpServerErrorException;
-import org.springframework.web.client.ResourceAccessException;
-import org.springframework.web.client.RestClient;
-import org.springframework.web.client.RestClientException;
-import org.springframework.web.client.RestClientResponseException;
+import org.springframework.web.client.*;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeParseException;
 import java.util.Objects;
+import java.util.concurrent.ThreadLocalRandom;
 
 public final class WebPushServiceImpl implements WebPushService {
 
@@ -43,8 +41,10 @@ public final class WebPushServiceImpl implements WebPushService {
     }
 
     private SendResult sendWithRetry(PushSubscription subscription, String payload, Duration ttl) {
-        int maxAttempts = Math.max(1, properties.retry().maxAttempts() + 1);
-        Duration backoff = properties.retry().initialBackoff();
+        WebPushProperties.Retry retry = properties.retry();
+        int maxAttempts = retry.maxAttempts() + 1;
+        Duration backoff = retry.initialBackoff();
+        Duration maxBackoff = retry.maxBackoff();
         for (int attempt = 1; attempt <= maxAttempts; attempt++) {
             try {
                 HttpStatusCode status = sendOnce(subscription, payload, ttl);
@@ -53,7 +53,9 @@ public final class WebPushServiceImpl implements WebPushService {
                 if (attempt == maxAttempts) {
                     return SendResult.failed(subscription, ex.status, ex.getCause(), attempt);
                 }
-                sleep(retryDelay(ex.retryAfter, backoff, attempt));
+                if (!sleep(retryDelay(ex.retryAfter, backoff, maxBackoff, attempt))) {
+                    return SendResult.failed(subscription, ex.status, ex.getCause(), attempt);
+                }
             } catch (NonRetryableException ex) {
                 return SendResult.failed(subscription, ex.status, ex.getCause(), attempt);
             }
@@ -62,9 +64,15 @@ public final class WebPushServiceImpl implements WebPushService {
     }
 
     private HttpStatusCode sendOnce(PushSubscription subscription, String payload, Duration ttl) {
-        byte[] encryptedBody = contentEncryptor.encrypt(
-                subscription.p256dh(), subscription.auth(), payload.getBytes(StandardCharsets.UTF_8));
-        String authorization = vapidSigner.buildAuthorizationHeader(subscription.endpoint());
+        byte[] encryptedBody;
+        String authorization;
+        try {
+            encryptedBody = contentEncryptor.encrypt(
+                    subscription.p256dh(), subscription.auth(), payload.getBytes(StandardCharsets.UTF_8));
+            authorization = vapidSigner.buildAuthorizationHeader(subscription.endpoint());
+        } catch (IllegalArgumentException | IllegalStateException ex) {
+            throw new NonRetryableException(null, ex);
+        }
         try {
             return restClient.post()
                     .uri(subscription.endpoint())
@@ -97,31 +105,52 @@ public final class WebPushServiceImpl implements WebPushService {
         }
     }
 
-    private static Duration parseRetryAfter(RestClientResponseException ex) {
+    static Duration parseRetryAfter(RestClientResponseException ex) {
         HttpHeaders headers = ex.getResponseHeaders();
         if (headers == null) return null;
         String value = headers.getFirst(HttpHeaders.RETRY_AFTER);
         if (value == null) return null;
+        return parseRetryAfterValue(value.trim());
+    }
+
+    static Duration parseRetryAfterValue(String value) {
         try {
-            return Duration.ofSeconds(Long.parseLong(value.trim()));
+            long seconds = Long.parseLong(value);
+            return seconds < 0 ? null : Duration.ofSeconds(seconds);
         } catch (NumberFormatException ignored) {
+            // RFC 7231 also allows an HTTP-date.
+        }
+        try {
+            ZonedDateTime when = ZonedDateTime.parse(value, java.time.format.DateTimeFormatter.RFC_1123_DATE_TIME);
+            Duration delta = Duration.between(ZonedDateTime.now(when.getZone()), when);
+            return delta.isNegative() ? Duration.ZERO : delta;
+        } catch (DateTimeParseException ignored) {
             return null;
         }
     }
 
-    private static Duration retryDelay(Duration retryAfter, Duration initialBackoff, int attempt) {
-        if (retryAfter != null && !retryAfter.isNegative()) return retryAfter;
-        long millis = initialBackoff.toMillis() * (1L << (attempt - 1));
-        long jitter = (long) (millis * 0.1 * Math.random());
-        return Duration.ofMillis(millis + jitter);
+    static Duration retryDelay(Duration retryAfter, Duration initialBackoff, Duration maxBackoff, int attempt) {
+        long capMillis = Math.max(1L, maxBackoff.toMillis());
+        if (retryAfter != null && !retryAfter.isNegative()) {
+            return Duration.ofMillis(Math.min(retryAfter.toMillis(), capMillis));
+        }
+        int shift = Math.min(Math.max(0, attempt - 1), 30);
+        long base = initialBackoff.toMillis();
+        long expMillis = base > 0 && shift > 0 && base > Long.MAX_VALUE >> shift
+                ? capMillis
+                : base << shift;
+        long bounded = Math.min(expMillis, capMillis);
+        long jitter = (long) (bounded * 0.1 * ThreadLocalRandom.current().nextDouble());
+        return Duration.ofMillis(Math.min(bounded + jitter, capMillis));
     }
 
-    private static void sleep(Duration duration) {
+    private static boolean sleep(Duration duration) {
         try {
-            Thread.sleep(duration.toMillis());
+            Thread.sleep(Math.max(0L, duration.toMillis()));
+            return true;
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            throw new IllegalStateException("Retry interrupted", e);
+            return false;
         }
     }
 

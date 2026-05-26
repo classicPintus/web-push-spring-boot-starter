@@ -7,12 +7,7 @@ import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.security.GeneralSecurityException;
-import java.security.InvalidKeyException;
-import java.security.KeyPair;
-import java.security.KeyPairGenerator;
-import java.security.NoSuchAlgorithmException;
-import java.security.SecureRandom;
+import java.security.*;
 import java.security.interfaces.ECPublicKey;
 import java.util.Arrays;
 import java.util.Base64;
@@ -31,6 +26,9 @@ public final class ContentEncryptor {
     private static final int GCM_TAG_BITS = 128;
     private static final int GCM_TAG_BYTES = 16;
     private static final int RECORD_OVERHEAD = GCM_TAG_BYTES + 1;
+    private static final int MIN_RECORD_SIZE = 18;
+    private static final int MAX_RECORD_SIZE = 4096;
+    private static final int MAX_PLAINTEXT_SIZE = MAX_RECORD_SIZE - RECORD_OVERHEAD;
     private static final byte RECORD_DELIMITER = 0x02;
 
     private static final byte[] KEY_INFO_LABEL = "WebPush: info\0".getBytes(StandardCharsets.UTF_8);
@@ -40,6 +38,10 @@ public final class ContentEncryptor {
     private static final SecureRandom RANDOM = new SecureRandom();
 
     public byte[] encrypt(String p256dhBase64Url, String authBase64Url, byte[] plaintext) {
+        if (plaintext.length > MAX_PLAINTEXT_SIZE) {
+            throw new IllegalArgumentException(
+                    "payload exceeds maximum size of " + MAX_PLAINTEXT_SIZE + " bytes (RFC 8030 §7.2)");
+        }
         byte[] userPublicKeyBytes = decodeBase64Url(p256dhBase64Url, "p256dh");
         byte[] authSecret = decodeBase64Url(authBase64Url, "auth");
         ECPublicKey userPublicKey = decodeUserPublicKey(userPublicKeyBytes);
@@ -82,7 +84,7 @@ public final class ContentEncryptor {
         cipher.init(Cipher.ENCRYPT_MODE, new SecretKeySpec(cek, AES), new GCMParameterSpec(GCM_TAG_BITS, nonce));
         byte[] ciphertext = cipher.doFinal(paddedPlaintext);
 
-        int rs = plaintext.length + RECORD_OVERHEAD;
+        int rs = Math.max(MIN_RECORD_SIZE, plaintext.length + RECORD_OVERHEAD);
         return ByteBuffer.allocate(SALT_LENGTH + 4 + 1 + EcUtils.UNCOMPRESSED_POINT_LENGTH + ciphertext.length)
                 .put(salt)
                 .putInt(rs)

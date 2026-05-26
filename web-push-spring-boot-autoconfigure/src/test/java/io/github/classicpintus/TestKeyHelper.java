@@ -74,7 +74,7 @@ final class TestKeyHelper {
 
     static String[] decodeJwtParts(String authorizationHeader) {
         String prefix = "vapid t=";
-        int comma = authorizationHeader.indexOf(",k=");
+        int comma = authorizationHeader.indexOf(", k=");
         String jwt = authorizationHeader.substring(prefix.length(), comma);
         return jwt.split("\\.");
     }

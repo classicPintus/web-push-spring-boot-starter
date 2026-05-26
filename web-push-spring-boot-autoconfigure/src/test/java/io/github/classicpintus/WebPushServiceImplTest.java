@@ -21,12 +21,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.startsWith;
-import static org.springframework.test.web.client.match.MockRestRequestMatchers.header;
-import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
-import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
-import static org.springframework.test.web.client.response.MockRestResponseCreators.withServerError;
-import static org.springframework.test.web.client.response.MockRestResponseCreators.withStatus;
-import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
+import static org.springframework.test.web.client.match.MockRestRequestMatchers.*;
+import static org.springframework.test.web.client.response.MockRestResponseCreators.*;
 
 class WebPushServiceImplTest {
 
@@ -69,7 +65,7 @@ class WebPushServiceImplTest {
     void send_includesAuthorizationVapidAndKey() {
         mockServer.expect(requestTo(ENDPOINT))
                 .andExpect(header(HttpHeaders.AUTHORIZATION, startsWith("vapid t=")))
-                .andExpect(header(HttpHeaders.AUTHORIZATION, containsString(",k=" + vapidPublicKey)))
+                .andExpect(header(HttpHeaders.AUTHORIZATION, containsString(", k=" + vapidPublicKey)))
                 .andRespond(withSuccess());
 
         assertThat(service.send(subscription, "Hello!").success()).isTrue();
@@ -157,6 +153,58 @@ class WebPushServiceImplTest {
     void send_nullSubscription_throws() {
         assertThatThrownBy(() -> service.send(null, "x"))
                 .isInstanceOf(NullPointerException.class);
+    }
+
+    @Test
+    void send_invalidP256dh_returnsFailedInsteadOfThrowing() throws Exception {
+        PushSubscription bad = new PushSubscription(
+                ENDPOINT,
+                TestKeyHelper.base64Url(new byte[]{1, 2, 3}),
+                TestKeyHelper.base64Url(new byte[16]));
+
+        SendResult result = service.send(bad, "Hello!");
+
+        assertThat(result.success()).isFalse();
+        assertThat(result.statusCode()).isNull();
+        assertThat(result.error()).isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void parseRetryAfterValue_acceptsSeconds() {
+        assertThat(WebPushServiceImpl.parseRetryAfterValue("12")).isEqualTo(Duration.ofSeconds(12));
+    }
+
+    @Test
+    void parseRetryAfterValue_acceptsHttpDate() {
+        java.time.ZonedDateTime future = java.time.ZonedDateTime.now(java.time.ZoneOffset.UTC).plusSeconds(30);
+        String httpDate = future.format(java.time.format.DateTimeFormatter.RFC_1123_DATE_TIME);
+
+        Duration parsed = WebPushServiceImpl.parseRetryAfterValue(httpDate);
+
+        assertThat(parsed).isNotNull();
+        assertThat(parsed.toSeconds()).isBetween(20L, 31L);
+    }
+
+    @Test
+    void parseRetryAfterValue_returnsNullOnGarbage() {
+        assertThat(WebPushServiceImpl.parseRetryAfterValue("not-a-value")).isNull();
+    }
+
+    @Test
+    void retryDelay_capsRetryAfterAtMaxBackoff() {
+        Duration capped = WebPushServiceImpl.retryDelay(
+                Duration.ofHours(1), Duration.ofMillis(1), Duration.ofSeconds(5), 1);
+
+        assertThat(capped).isEqualTo(Duration.ofSeconds(5));
+    }
+
+    @Test
+    void retryDelay_doesNotOverflowOnLargeAttempt() {
+        Duration delay = WebPushServiceImpl.retryDelay(
+                null, Duration.ofMillis(100), Duration.ofSeconds(30), 64);
+
+        assertThat(delay).isLessThanOrEqualTo(Duration.ofSeconds(30));
+        assertThat(delay).isGreaterThanOrEqualTo(Duration.ZERO);
     }
 
     private WebPushServiceImpl buildService(WebPushProperties props) {
