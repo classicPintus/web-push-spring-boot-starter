@@ -1,5 +1,10 @@
 # Project Context
 
+[![build](https://github.com/classicPintus/web-push-spring-boot-starter/actions/workflows/build.yml/badge.svg)](https://github.com/classicPintus/web-push-spring-boot-starter/actions/workflows/build.yml)
+[![codeql](https://github.com/classicPintus/web-push-spring-boot-starter/actions/workflows/codeql.yml/badge.svg)](https://github.com/classicPintus/web-push-spring-boot-starter/actions/workflows/codeql.yml)
+[![Maven Central](https://img.shields.io/maven-central/v/io.github.classicpintus/web-push-spring-boot-starter.svg)](https://central.sonatype.com/artifact/io.github.classicpintus/web-push-spring-boot-starter)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
+
 This project is a custom Spring Boot starter for sending Web Push notifications from Spring Boot applications.
 
 ## Purpose
