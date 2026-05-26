@@ -1,48 +1,48 @@
 # Project Context
 
-Questo progetto e' un custom Spring Boot starter per inviare notifiche Web Push da applicazioni Spring Boot.
+This project is a custom Spring Boot starter for sending Web Push notifications from Spring Boot applications.
 
-## Scopo
+## Purpose
 
-Fornire una dipendenza pronta da includere in un'app Spring Boot per ottenere un bean `WebPushService` configurato via properties.
+Provide a ready-to-use dependency to include in a Spring Boot app to get a `WebPushService` bean configured via properties.
 
-Il servizio:
+The service:
 
-- cifra il payload secondo Web Push encryption (`aes128gcm`);
-- firma le richieste con VAPID;
-- invia la notifica al push service del browser tramite `RestClient`;
-- restituisce un `SendResult` con esito, status HTTP, tentativi e errore eventuale.
+- encrypts the payload according to Web Push encryption (`aes128gcm`);
+- signs requests with VAPID;
+- sends the notification to the browser's push service via `RestClient`;
+- returns a `SendResult` with outcome, HTTP status, attempts and any error.
 
-## Struttura
+## Structure
 
-Il progetto e' un Maven multi-module:
+The project is a Maven multi-module:
 
-- `web-push-spring-boot-autoconfigure`: contiene codice, auto-configuration, properties, servizio e crypto;
-- `web-push-spring-boot-starter`: modulo starter, solo POM, aggrega autoconfigure e dipendenze necessarie;
+- `web-push-spring-boot-autoconfigure`: contains the code, auto-configuration, properties, service and crypto;
+- `web-push-spring-boot-starter`: starter module, POM only, aggregates autoconfigure and the required dependencies;
 - `pom.xml`: parent POM.
 
-## API principale
+## Main API
 
-Package pubblico: `io.github.classicpintus`.
+Public package: `io.github.classicpintus`.
 
-Classi principali:
+Main classes:
 
-- `WebPushService`: interfaccia da usare nelle applicazioni consumer;
-- `WebPushServiceImpl`: implementazione interna;
-- `PushSubscription`: record con `endpoint`, `p256dh`, `auth`;
-- `SendResult`: risultato dell'invio;
-- `WebPushProperties`: configurazione sotto prefisso `webpush`;
-- `WebPushAutoConfiguration`: registra i bean se `RestClient` e' disponibile e `webpush.enabled` non e' disabilitato.
+- `WebPushService`: interface to use in consumer applications;
+- `WebPushServiceImpl`: internal implementation;
+- `PushSubscription`: record with `endpoint`, `p256dh`, `auth`;
+- `SendResult`: send result;
+- `WebPushProperties`: configuration under prefix `webpush`;
+- `WebPushAutoConfiguration`: registers the beans if `RestClient` is available and `webpush.enabled` is not disabled.
 
-Uso atteso:
+Expected usage:
 
 ```java
 webPushService.send(subscription, payload);
 ```
 
-## Configurazione
+## Configuration
 
-Prefix properties:
+Properties prefix:
 
 ```yaml
 webpush:
@@ -59,65 +59,65 @@ webpush:
     initial-backoff: 1s
 ```
 
-Le chiavi VAPID sono EC P-256 in base64url:
+VAPID keys are EC P-256 in base64url:
 
-- public key: punto non compresso, 65 byte;
-- private key: scalar, 32 byte.
+- public key: uncompressed point, 65 bytes;
+- private key: scalar, 32 bytes.
 
-## Invio
+## Send
 
 `WebPushServiceImpl`:
 
-1. cifra il payload con `ContentEncryptor`;
-2. crea header `Authorization` VAPID con `VapidSigner`;
-3. invia POST verso `subscription.endpoint()`;
-4. imposta header `TTL` e `Content-Encoding: aes128gcm`;
-5. applica retry su errori transienti.
+1. encrypts the payload with `ContentEncryptor`;
+2. builds the VAPID `Authorization` header with `VapidSigner`;
+3. sends a POST to `subscription.endpoint()`;
+4. sets headers `TTL` and `Content-Encoding: aes128gcm`;
+5. applies retry on transient errors.
 
 Retry:
 
 - `429 Too Many Requests`: retryable;
 - `503 Service Unavailable`: retryable;
 - `ResourceAccessException`: retryable;
-- altri errori client/server: non retryable.
+- other client/server errors: non-retryable.
 
-`SendResult.isSubscriptionExpired()` considera scadute le subscription con status `404` o `410`.
+`SendResult.isSubscriptionExpired()` considers subscriptions with status `404` or `410` as expired.
 
 ## Crypto
 
-La crypto e' implementata con JCA/JDK, senza BouncyCastle.
+The crypto is implemented with JCA/JDK, without BouncyCastle.
 
-Componenti:
+Components:
 
-- `VapidSigner`: genera e mette in cache header VAPID per audience;
+- `VapidSigner`: generates and caches VAPID headers per audience;
 - `ContentEncryptor`: ECDH P-256, HKDF SHA-256, AES-128-GCM;
-- `EcUtils`: utilita' per curve e codifica punti EC.
+- `EcUtils`: utilities for curves and EC point encoding.
 
-## Test
+## Tests
 
-Test presenti nel modulo autoconfigure:
+Tests located in the autoconfigure module:
 
 - auto-configuration;
 - VAPID signer;
 - content encryption;
 - service implementation;
-- integrazione FCM.
+- FCM integration.
 
-Comando tipico:
+Typical command:
 
 ```bash
 ./mvnw test
 ```
 
-## Pubblicazione Maven Central
+## Publishing to Maven Central
 
-Prerequisiti locali:
+Local prerequisites:
 
-- namespace `io.github.classicpintus` verificato su https://central.sonatype.com;
-- token Central Portal in `~/.m2/settings.xml` con server id `central`;
-- chiave GPG disponibile localmente.
+- namespace `io.github.classicpintus` verified on https://central.sonatype.com;
+- Central Portal token in `~/.m2/settings.xml` with server id `central`;
+- GPG key available locally.
 
-Esempio `~/.m2/settings.xml`:
+Example `~/.m2/settings.xml`:
 
 ```xml
 <settings>
@@ -131,20 +131,20 @@ Esempio `~/.m2/settings.xml`:
 </settings>
 ```
 
-Release manuale:
+Manual release:
 
 ```bash
 ./mvnw versions:set -DnewVersion=0.1.0
 ./mvnw -Prelease clean deploy
 ```
 
-Dry-run senza firma e senza upload:
+Dry-run without signing and without upload:
 
 ```bash
 ./mvnw -Prelease -Dgpg.skip=true -Dcentral.skipPublishing=true clean deploy
 ```
 
-## Note operative
+## Operational notes
 
-- Target attuale: Spring Boot `4.0.6`, Java `25`.
-- Auto-configuration registrata in `META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports`.
+- Current target: Spring Boot `4.0.6`, Java `25`.
+- Auto-configuration registered in `META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports`.
