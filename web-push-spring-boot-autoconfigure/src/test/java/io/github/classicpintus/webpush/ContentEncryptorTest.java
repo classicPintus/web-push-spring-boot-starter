@@ -15,6 +15,7 @@ import java.security.AlgorithmParameters;
 import java.security.KeyFactory;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
+import java.security.SecureRandom;
 import java.security.interfaces.ECPrivateKey;
 import java.security.interfaces.ECPublicKey;
 import java.security.spec.ECGenParameterSpec;
@@ -28,6 +29,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class ContentEncryptorTest {
+
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     private final ContentEncryptor encryptor = new ContentEncryptor();
 
@@ -123,7 +126,7 @@ class ContentEncryptorTest {
         ECPrivateKey receiverPriv = (ECPrivateKey) receiver.getPrivate();
 
         byte[] authSecret = new byte[16];
-        new java.security.SecureRandom().nextBytes(authSecret);
+        SECURE_RANDOM.nextBytes(authSecret);
 
         String p256dh = TestKeyHelper.base64Url(TestKeyHelper.uncompressedPoint(receiverPub));
         String auth = TestKeyHelper.base64Url(authSecret);
