@@ -20,24 +20,24 @@ The service:
 
 ## Getting started
 
-Requires Spring Boot 4.0.x and Java 25.
+Requires Spring Boot 4.1.x and Java 25.
 
 ### 1. Add the dependency
 
 Maven:
 
 ```xml
-<dependency>
-    <groupId>io.github.classicpintus</groupId>
-    <artifactId>web-push-spring-boot-starter</artifactId>
-    <version>0.2.0</version>
-</dependency>
+    <dependency>
+        <groupId>io.github.classicpintus</groupId>
+        <artifactId>web-push-spring-boot-starter</artifactId>
+        <version>4.1.0</version>
+    </dependency>
 ```
 
 Gradle (Kotlin DSL):
 
 ```kotlin
-implementation("io.github.classicpintus:web-push-spring-boot-starter:0.2.0")
+implementation("io.github.classicpintus:web-push-spring-boot-starter:4.1.0")
 ```
 
 The starter pulls in `web-push-spring-boot-autoconfigure` and `spring-boot-starter-restclient`.
@@ -211,42 +211,82 @@ Typical command:
 ./mvnw test
 ```
 
-## Publishing to Maven Central
+## Release
 
 Local prerequisites:
 
 - namespace `io.github.classicpintus` verified on https://central.sonatype.com;
-- Central Portal token in `~/.m2/settings.xml` with server id `central`;
-- GPG key available locally.
+- GitHub repository secrets configured:
+  - `MAVEN_CENTRAL_USERNAME`
+  - `MAVEN_CENTRAL_PASSWORD`
+  - `MAVEN_GPG_PRIVATE_KEY`
+  - `MAVEN_GPG_PASSPHRASE`
 
-Example `~/.m2/settings.xml`:
+The release workflow runs on tags matching `v*`.
+It verifies that the tag without `v` matches the Maven project version, deploys to Maven Central, attests the build, and creates the GitHub Release.
 
-```xml
-<settings>
-  <servers>
-    <server>
-      <id>central</id>
-      <username>...</username>
-      <password>...</password>
-    </server>
-  </servers>
-</settings>
-```
+### Standard release
 
-Manual release:
+Set the release version in all Maven modules:
 
 ```bash
-./mvnw versions:set -DnewVersion=0.1.0
-./mvnw -Prelease clean deploy
+./mvnw versions:set -DnewVersion=4.1.0
+./mvnw versions:commit
 ```
 
-Dry-run without signing and without upload:
+Verify locally without publishing:
 
 ```bash
-./mvnw -Prelease -Dgpg.skip=true -Dcentral.skipPublishing=true clean deploy
+./mvnw -B -ntp clean verify
+./mvnw -B -ntp -Prelease -Dgpg.skip=true -Dcentral.skipPublishing=true clean deploy
+```
+
+Commit and push the version bump:
+
+```bash
+git add pom.xml web-push-spring-boot-autoconfigure/pom.xml web-push-spring-boot-starter/pom.xml
+git commit -m "Release v4.1.0"
+git push origin main
+```
+
+Create and push the release tag:
+
+```bash
+git tag v4.1.0
+git push origin v4.1.0
+```
+
+GitHub Actions will then:
+
+- deploy `4.1.0` to Maven Central;
+- create the GitHub Release `v4.1.0`;
+- upload the generated JAR and signature artifacts.
+
+Verify the release:
+
+```bash
+gh release view v4.1.0 --repo classicPintus/web-push-spring-boot-starter
+gh run list --repo classicPintus/web-push-spring-boot-starter --workflow release.yml --limit 3
+```
+
+### GitHub-only backfill
+
+Use this only if Maven Central was already published and only the GitHub Release is missing.
+Do not use a `v*` tag, otherwise the release workflow will deploy to Maven Central again.
+
+```bash
+gh release create 4.1.0 \
+  --repo classicPintus/web-push-spring-boot-starter \
+  --target <commit-sha> \
+  --title v4.1.0 \
+  --generate-notes \
+  --notes-start-tag <previous-tag> \
+  --latest
+
+git fetch --tags origin
 ```
 
 ## Operational notes
 
-- Current target: Spring Boot `4.0.6`, Java `25`.
+- Current target: Spring Boot `4.1.0`, Java `25`.
 - Auto-configuration registered in `META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports`.
